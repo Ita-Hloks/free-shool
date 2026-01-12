@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Head from "../components/Head";
+import Head from "../components/common/Head.tsx";
 
 export default function NotFound() {
   const navigate = useNavigate();

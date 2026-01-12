@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BackIcon, CloseIcon } from "../icon.tsx";
+import { BackIcon, CloseIcon } from "../../icon.tsx";
 
 interface ChildProps {
   title?: string;
@@ -14,7 +14,7 @@ export default function Head({ title }: ChildProps) {
         <button type="button" className="rounded p-1" onClick={() => navigate(-1)}>
           <BackIcon className="w-7 h-7 text-gray-600" />
         </button>
-        <button type="button" className="rounded p-1">
+        <button type="button" className="rounded p-1" onClick={() => navigate("/")}>
           <CloseIcon className="w-7 h-7 text-gray-600" />
         </button>
       </div>
