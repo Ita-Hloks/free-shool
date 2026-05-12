@@ -1,88 +1,85 @@
-import type { LeaveNote } from "../components/type/leaveApplicationProp.ts";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Head from "../components/common/Head.tsx";
 import SignaturePad from "../components/common/SignaturePad.tsx";
+import { useLeaveApplicationForm } from "../hooks/useLeaveApplicationForm.ts";
+import { compressImageFile, estimateDataUrlBytes } from "../utils/imageCompress.ts";
+import { getHistoryValues, getLeaveNoteById, saveLeaveNote, updateLeaveNote } from "../utils/leaveStorage.ts";
 
 export default function LaunchLeaveApplication() {
   const navigate = useNavigate();
-  const [form, setForm] = useState<LeaveNote>({
-    id: "",
-    studentName: "",
-    leaveType: "病假",
-    startTime: "",
-    endTime: "",
-    duration: "",
-    reason: "",
-    leaveSchool: "否",
-    location: "中国安徽省",
-    attachments: [],
-    signature: "",
-    submitTime: "",
-    createdAt: "",
-    agreeTime: "",
-    college: "",
-    teacher: "",
-  });
-
-  const [isSignatureOpen, setIsSignatureOpen] = useState(false);
+  const location = useLocation();
+  const {
+    form,
+    setForm,
+    isSignatureOpen,
+    setIsSignatureOpen,
+    buildLeaveNoteForSubmit,
+    addAttachments,
+    removeAttachment,
+    handleSaveSignature,
+  } = useLeaveApplicationForm();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [nameHistory, setNameHistory] = useState<string[]>([]);
+  const [locationHistory, setLocationHistory] = useState<string[]>([]);
+  const [showNameHistory, setShowNameHistory] = useState(false);
+  const [showLocationHistory, setShowLocationHistory] = useState(false);
+  const editId = (location.state as { editId?: string } | null)?.editId;
 
-  // 自动计算请假时长
   useEffect(() => {
-    if (form.startTime && form.endTime) {
-      const start = new Date(form.startTime);
-      const end = new Date(form.endTime);
-      const diff = end.getTime() - start.getTime();
+    setNameHistory(getHistoryValues("studentName"));
+    setLocationHistory(getHistoryValues("location"));
+  }, []);
 
-      if (diff > 0) {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-        let durationStr = "";
-        if (days > 0) {
-          durationStr += `${days}天`;
-        }
-        if (hours > 0) {
-          durationStr += `${hours}小时`;
-        }
-        if (minutes > 0 && days === 0) {
-          durationStr += `${minutes}分钟`;
-        }
-
-        setForm(prev => ({ ...prev, duration: durationStr || "0分钟" }));
-      }
+  useEffect(() => {
+    if (!editId) {
+      return;
     }
-  }, [form.startTime, form.endTime]);
+    const note = getLeaveNoteById(editId);
+    if (note) {
+      setForm(note);
+    }
+  }, [editId, setForm]);
 
   // 处理图片上传
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newAttachments: string[] = [];
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            newAttachments.push(event.target.result as string);
-            if (newAttachments.length === files.length) {
-              setForm(prev => ({
-                ...prev,
-                attachments: [...(prev.attachments || []), ...newAttachments],
-              }));
-            }
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
+      return;
     }
-  };
 
-  // 处理签名保存
-  const handleSaveSignature = (signatureData: string) => {
-    setForm(prev => ({ ...prev, signature: signatureData }));
-    setIsSignatureOpen(false);
+    const MAX_TOTAL_BYTES = 3_000_000;
+    const errors: string[] = [];
+    const newAttachments: string[] = [];
+    const existingBytes = (form.attachments || []).reduce(
+      (sum, item) => sum + estimateDataUrlBytes(item),
+      0,
+    );
+    let totalBytes = existingBytes;
+
+    for (const file of files) {
+      try {
+        const { dataUrl, byteSize } = await compressImageFile(file);
+        if (totalBytes + byteSize > MAX_TOTAL_BYTES) {
+          throw new Error("附件总大小超过上限，请减少图片数量");
+        }
+        newAttachments.push(dataUrl);
+        totalBytes += byteSize;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "图片处理失败";
+        errors.push(`${file.name}：${message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      alert(`部分图片未添加：\n${errors.join("\n")}`);
+    }
+    if (newAttachments.length > 0) {
+      addAttachments(newAttachments);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   // 返回处理
@@ -93,22 +90,20 @@ export default function LaunchLeaveApplication() {
   // 提交表单
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 生成 ID 和时间戳
-    const now = new Date().toISOString();
-    const newNote: LeaveNote = {
-      ...form,
-      id: `leave_${Date.now()}`,
-      createdAt: now,
-      submitTime: form.submitTime || now,
-    };
-
-    // 保存到 localStorage
-    const existingNotes = JSON.parse(localStorage.getItem("leaveNotes") || "[]");
-    existingNotes.push(newNote);
-    localStorage.setItem("leaveNotes", JSON.stringify(existingNotes));
-
-    // 跳转到详情页
+    if (editId) {
+      const now = new Date().toISOString();
+      const updatedNote = {
+        ...form,
+        id: editId,
+        createdAt: form.createdAt || now,
+        submitTime: form.submitTime || now,
+      };
+      updateLeaveNote(updatedNote);
+      navigate(`/leaveDetail/${editId}`);
+      return;
+    }
+    const newNote = buildLeaveNoteForSubmit();
+    saveLeaveNote(newNote);
     navigate(`/leaveDetail/${newNote.id}`);
   };
 
@@ -121,9 +116,19 @@ export default function LaunchLeaveApplication() {
           <input
             value={form.studentName}
             onChange={e => setForm({ ...form, studentName: e.target.value })}
+            onFocus={() => setShowNameHistory(true)}
+            onBlur={() => setShowNameHistory(false)}
+            list="studentNameHistory"
             className="w-full mt-1 p-2 border rounded"
             required
           />
+          {showNameHistory && nameHistory.length > 0 && (
+            <datalist id="studentNameHistory">
+              {nameHistory.map(name => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+          )}
         </div>
 
         <div>
@@ -196,8 +201,18 @@ export default function LaunchLeaveApplication() {
           <input
             value={form.location}
             onChange={e => setForm({ ...form, location: e.target.value })}
+            onFocus={() => setShowLocationHistory(true)}
+            onBlur={() => setShowLocationHistory(false)}
+            list="locationHistory"
             className="w-full mt-1 p-2 border rounded"
           />
+          {showLocationHistory && locationHistory.length > 0 && (
+            <datalist id="locationHistory">
+              {locationHistory.map(location => (
+                <option key={location} value={location} />
+              ))}
+            </datalist>
+          )}
         </div>
         <div>
           <label className="text-xs text-gray-500">证明材料</label>
@@ -212,11 +227,11 @@ export default function LaunchLeaveApplication() {
           {form.attachments && form.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
               {form.attachments.map((url, index) => (
-                <div key={form.id} className="relative">
+                <div key={`${url}-${index}`} className="relative">
                   <img src={url} alt="" className="w-20 h-20 object-cover rounded" />
                   <button
                     type="button"
-                    onClick={() => setForm(prev => ({ ...prev, attachments: prev.attachments?.filter((_, i) => i !== index) || [] }))}
+                    onClick={() => removeAttachment(index)}
                     className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs"
                   >
                     ×

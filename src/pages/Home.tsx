@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Head from "../components/common/Head.tsx";
 import { BagBriefcaseIcon, CircleStandIcon } from "../icon.tsx";
+import { getLeaveNotes } from "../utils/leaveStorage.ts";
 
 export default function Home() {
   const [leaveNotes, setLeaveNotes] = useState<LeaveNote[]>([]);
@@ -10,7 +11,7 @@ export default function Home() {
   // 加载请假记录
   useEffect(() => {
     const loadNotes = () => {
-      const notes = JSON.parse(localStorage.getItem("leaveNotes") || "[]");
+      const notes = getLeaveNotes();
       // 按提交时间降序排列
       const sortedNotes = notes.sort((a: LeaveNote, b: LeaveNote) => {
         return new Date(b.submitTime || b.createdAt).getTime() - new Date(a.submitTime || a.createdAt).getTime();

@@ -1,13 +1,16 @@
 import type { LeaveNote } from "../components/type/leaveApplicationProp.ts";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Head from "../components/common/Head.tsx";
 import { MenuIcon } from "../icon.tsx";
+import Avatar from "../components/common/Avatar.tsx";
+import { getLeaveNotes, removeLeaveNoteById } from "../utils/leaveStorage.ts";
 
 export default function LeaveApplicationDetail() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   // 从 localStorage 获取请假记录
-  const leaveNotes: LeaveNote[] = JSON.parse(localStorage.getItem("leaveNotes") || "[]");
+  const leaveNotes: LeaveNote[] = getLeaveNotes();
   const leaveNote = leaveNotes.find(note => note.id === id);
 
   if (!leaveNote) {
@@ -19,6 +22,15 @@ export default function LeaveApplicationDetail() {
       </div>
     );
   }
+
+  const handleRemove = () => {
+    removeLeaveNoteById(leaveNote.id);
+    navigate("/");
+  };
+
+  const handleEdit = () => {
+    navigate("/launchLeaveApplication", { state: { editId: leaveNote.id } });
+  };
 
   const {
     studentName,
@@ -54,7 +66,7 @@ export default function LeaveApplicationDetail() {
 
         <div className="flex items-center gap-4 p-5 pl-8">
           <div className="flex-shrink-0">
-            <img src="/avatar.png" alt="头像" className="w-12 h-12 rounded-full" />
+            <Avatar alt="头像" className="w-12 h-12 rounded-full" />
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between">
@@ -65,6 +77,7 @@ export default function LeaveApplicationDetail() {
               </h1>
               <span
                 className="text-xs font-semibold text-[#3dd4a7] ml-2 max-w-[45%] truncate"
+                onClick={handleRemove}
               >
                 已通过
               </span>
@@ -174,7 +187,7 @@ export default function LeaveApplicationDetail() {
               <h3 className="text-base font-bold text-gray-900 mb-3">发起申请</h3>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start flex-1 min-w-0">
-                  <img src="/avatar.png" alt="avatar" className="w-12 h-12 rounded-full mr-3 flex-shrink-0" />
+                  <Avatar alt="avatar" className="w-12 h-12 rounded-full mr-3 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm text-gray-900 mb-0.5">{studentName}</p>
                     <p className="text-xs whitespace-nowrap text-gray-500">{college}</p>
@@ -198,7 +211,7 @@ export default function LeaveApplicationDetail() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start flex-1 min-w-0">
                   <div className="relative mr-3 flex-shrink-0">
-                    <img src="/avatar.png" alt="avatar" className="w-12 h-12 rounded-full" />
+                    <Avatar alt="avatar" className="w-12 h-12 rounded-full" />
                     <span className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-[#28d093] text-white text-xs px-2 rounded-full whitespace-nowrap">
                       已同意
                     </span>
@@ -225,7 +238,9 @@ export default function LeaveApplicationDetail() {
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 12px) + 6px)" }}
       >
         <div className="flex flex-col items-center">
-          <MenuIcon className="w-4 h-4" />
+          <button type="button" onClick={handleEdit}>
+            <MenuIcon className="w-4 h-4" />
+          </button>
           <span className="text-xs">更多</span>
         </div>
         <button
