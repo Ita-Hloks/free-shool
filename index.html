@@ -1,17 +1,34 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-<!--    <link rel="icon" type="image/svg+xml" href="/vite.svg" />-->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
 
-    <!-- 主题颜色 -->
-    <meta name="theme-color" content="#ffffff" />
+  <!-- PWA 必需的 meta 标签 -->
+  <link rel="icon" type="image/png" href="/icon-512x512.png" />
+  <!-- 禁止移动端缩放（initial-scale 保留，added maximum-scale & user-scalable） -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
-    <title>free-shool</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- 主题颜色 -->
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- iOS Safari 支持 -->
+  <link rel="apple-touch-icon" href="/icon-192x192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Android 全屏和颜色 -->
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- 描述 -->
+  <meta name="description" content="今日校园 - Progressive Web App" />
+
+  <title>今日校园</title>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
 </html>
